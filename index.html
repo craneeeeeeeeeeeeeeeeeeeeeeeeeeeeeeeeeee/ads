@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Brave Counter Spammer</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Bebas+Neue&display=swap');
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #0a0a0a;
+    --surface: #111;
+    --border: #222;
+    --orange: #ff6b1a;
+    --orange-dim: #ff6b1a44;
+    --green: #00ff88;
+    --red: #ff3355;
+    --text: #eee;
+    --muted: #555;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Space Mono', monospace;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    overflow: hidden;
+  }
+
+  /* animated scanline bg */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(255,255,255,0.015) 2px, rgba(255,255,255,0.015) 4px);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .container {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    max-width: 640px;
+  }
+
+  h1 {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: clamp(48px, 12vw, 96px);
+    letter-spacing: 4px;
+    color: var(--orange);
+    line-height: 1;
+    margin-bottom: 4px;
+    text-shadow: 0 0 40px var(--orange-dim);
+  }
+
+  .tagline {
+    font-size: 11px;
+    color: var(--muted);
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    margin-bottom: 40px;
+  }
+
+  .stats-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 12px;
+    margin-bottom: 32px;
+  }
+
+  .stat-box {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    padding: 16px 12px;
+    text-align: center;
+  }
+
+  .stat-val {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 36px;
+    letter-spacing: 2px;
+    color: var(--text);
+    display: block;
+    line-height: 1;
+  }
+
+  .stat-val.orange { color: var(--orange); text-shadow: 0 0 20px var(--orange-dim); }
+  .stat-val.green { color: var(--green); }
+
+  .stat-key {
+    font-size: 9px;
+    color: var(--muted);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin-top: 4px;
+    display: block;
+  }
+
+  .progress-wrap {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    height: 6px;
+    margin-bottom: 32px;
+    overflow: hidden;
+  }
+
+  .progress-bar {
+    height: 100%;
+    background: var(--orange);
+    width: 0%;
+    transition: width 0.1s linear;
+    box-shadow: 0 0 12px var(--orange);
+  }
+
+  .controls {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 24px;
+  }
+
+  button {
+    font-family: 'Space Mono', monospace;
+    font-size: 12px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    padding: 14px 24px;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--text);
+    cursor: pointer;
+    transition: all 0.15s;
+    flex: 1;
+  }
+
+  button:hover { border-color: var(--orange); color: var(--orange); }
+  button.active { background: var(--orange); color: #000; border-color: var(--orange); font-weight: 700; }
+  button.danger:hover { border-color: var(--red); color: var(--red); }
+
+  .log {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    height: 120px;
+    overflow-y: auto;
+    padding: 8px;
+    font-size: 10px;
+    color: var(--muted);
+    scrollbar-width: none;
+  }
+
+  .log::-webkit-scrollbar { display: none; }
+
+  .log-line { padding: 1px 0; border-bottom: 1px solid #1a1a1a; }
+  .log-line.hit { color: var(--orange); }
+
+  .status-dot {
+    display: inline-block;
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--muted);
+    margin-right: 8px;
+    transition: background 0.2s;
+  }
+  .status-dot.active { background: var(--green); box-shadow: 0 0 8px var(--green); animation: pulse 1s infinite; }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+  }
+
+  .footer {
+    margin-top: 16px;
+    font-size: 9px;
+    color: var(--muted);
+    letter-spacing: 1px;
+    text-align: center;
+  }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>SHIELD NUKE</h1>
+  <p class="tagline"><span class="status-dot" id="dot"></span>Brave ads &amp; trackers counter booster</p>
+
+  <div class="stats-grid">
+    <div class="stat-box">
+      <span class="stat-val orange" id="total">0</span>
+      <span class="stat-key">Total fired</span>
+    </div>
+    <div class="stat-box">
+      <span class="stat-val green" id="rps">0</span>
+      <span class="stat-key">Req / sec</span>
+    </div>
+    <div class="stat-box">
+      <span class="stat-val" id="domains">0</span>
+      <span class="stat-key">Unique domains</span>
+    </div>
+  </div>
+
+  <div class="progress-wrap"><div class="progress-bar" id="pbar"></div></div>
+
+  <div class="controls">
+    <button id="main-btn" onclick="toggle()">▶ Start</button>
+    <button class="danger" onclick="resetAll()">↺ Reset</button>
+  </div>
+
+  <div class="log" id="log"></div>
+  <p class="footer">Each unique subdomain = +1 to Brave's blocked counter &nbsp;|&nbsp; Open brave://stats to watch it climb</p>
+</div>
+
+<script>
+// Strategy: generate endless unique subdomains across known ad/tracker base domains
+// Brave blocks by domain pattern — each new subdomain registers as a new blocked request
+
+const BASE_DOMAINS = [
+  "doubleclick.net",
+  "googlesyndication.com",
+  "googleadservices.com",
+  "google-analytics.com",
+  "googletagmanager.com",
+  "googletagservices.com",
+  "facebook.com",
+  "fbcdn.net",
+  "adnxs.com",
+  "rubiconproject.com",
+  "pubmatic.com",
+  "openx.net",
+  "casalemedia.com",
+  "scorecardresearch.com",
+  "taboola.com",
+  "outbrain.com",
+  "moatads.com",
+  "advertising.com",
+  "adtechus.com",
+  "turn.com",
+  "rlcdn.com",
+  "bluekai.com",
+  "demdex.net",
+  "everesttech.net",
+  "omtrdc.net",
+  "2mdn.net",
+  "yimg.com",
+  "criteo.com",
+  "criteo.net",
+  "criteosyncpartner.com",
+  "adsrvr.org",
+  "adroll.com",
+  "addthis.com",
+  "sharethis.com",
+  "quantserve.com",
+  "lijit.com",
+  "sonobi.com",
+  "spotxchange.com",
+  "smartadserver.com",
+  "mediamath.com",
+];
+
+let running = false;
+let total = 0;
+let domainCount = 0;
+let lastTotal = 0;
+let rpsInterval = null;
+let frameId = null;
+const BATCH = 30; // requests per frame — high but not tab-crashing
+
+function uid() {
+  return Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
+}
+
+function fireRequest(domain) {
+  const subdomain = `t${uid()}.${domain}`;
+  const img = new Image();
+  img.src = `https://${subdomain}/pixel.gif?v=${Math.random()}`;
+  domainCount++;
+  total++;
+  return subdomain;
+}
+
+function loop() {
+  if (!running) return;
+  let lastDomain = '';
+  for (let i = 0; i < BATCH; i++) {
+    const base = BASE_DOMAINS[(total + i) % BASE_DOMAINS.length];
+    lastDomain = fireRequest(base);
+  }
+  // log every ~10 frames
+  if (total % (BATCH * 10) < BATCH) addLog(lastDomain);
+  updateStats();
+  frameId = requestAnimationFrame(loop);
+}
+
+function updateStats() {
+  document.getElementById('total').textContent = total.toLocaleString();
+  document.getElementById('domains').textContent = domainCount.toLocaleString();
+  // progress bar cycles 0-100 every 1000 requests
+  document.getElementById('pbar').style.width = ((total % 1000) / 10) + '%';
+}
+
+function addLog(domain) {
+  const log = document.getElementById('log');
+  const line = document.createElement('div');
+  line.className = 'log-line hit';
+  line.textContent = `→ https://${domain}/pixel.gif`;
+  log.prepend(line);
+  if (log.children.length > 80) log.removeChild(log.lastChild);
+}
+
+function toggle() {
+  if (running) stop(); else start();
+}
+
+function start() {
+  running = true;
+  document.getElementById('main-btn').textContent = '⏹ Stop';
+  document.getElementById('main-btn').classList.add('active');
+  document.getElementById('dot').classList.add('active');
+  rpsInterval = setInterval(() => {
+    const rps = total - lastTotal;
+    lastTotal = total;
+    document.getElementById('rps').textContent = rps.toLocaleString();
+  }, 1000);
+  frameId = requestAnimationFrame(loop);
+}
+
+function stop() {
+  running = false;
+  cancelAnimationFrame(frameId);
+  clearInterval(rpsInterval);
+  document.getElementById('main-btn').textContent = '▶ Start';
+  document.getElementById('main-btn').classList.remove('active');
+  document.getElementById('dot').classList.remove('active');
+}
+
+function resetAll() {
+  stop();
+  total = 0; domainCount = 0; lastTotal = 0;
+  document.getElementById('total').textContent = '0';
+  document.getElementById('rps').textContent = '0';
+  document.getElementById('domains').textContent = '0';
+  document.getElementById('pbar').style.width = '0%';
+  document.getElementById('log').innerHTML = '';
+}
+</script>
+</body>
+</html>
